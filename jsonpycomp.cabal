@@ -23,12 +23,12 @@ executable jsonpycomp
   -- other-extensions:
   build-depends:       base >=4.13 && <4.14
                      , hpython >=0.3 && <1
-                     , containers
-                     , validation
-                     , text
-                     , language-python
                      , aeson
                      , bytestring
+                     , containers
+                     , language-python
+                     , text
                      , utf8-string
+                     , validation
   -- hs-source-dirs:
   default-language:    Haskell2010

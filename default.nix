@@ -18,5 +18,6 @@ in
         brittany
         cabal-install
         ghcid
+        hlint
       ]);
   }

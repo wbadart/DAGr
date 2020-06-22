@@ -30,7 +30,7 @@ instance FromJSON Next where
 
 -- |
 parse :: JsonPy -> Either ParseError (Expr SrcSpan)
-parse (JsonPy { expr, args }) = do
+parse JsonPy { expr, args } = do
   (expr, _) <- parseExpr expr ""
   args      <- traverse (uncurry parseArgs) (M.toList args)
   return (Call (Paren expr SpanEmpty) args SpanEmpty)

@@ -1,8 +1,3 @@
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE NamedFieldPuns #-}
-
 module Main where
 
 import qualified Codec.Binary.UTF8.String      as UTF8
@@ -17,6 +12,5 @@ main =
   BS.interact
     $ BS.pack
     . UTF8.encode
-    . either id (either show prettyText)
-    . fmap parse
+    . either id (either show prettyText . parse)
     . eitherDecode

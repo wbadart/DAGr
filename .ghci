@@ -1,0 +1,2 @@
+:set -Wall -Wno-name-shadowing
+:set -isrc

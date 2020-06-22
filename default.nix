@@ -6,15 +6,6 @@ in
   compiler.developPackage {
     root = ./.;
     source-overrides = {
-      # ghc = compiler.ghcWithPackages (p: [
-      #   p.language-python
-      # ]);
-      hpython = pkgs.fetchFromGitHub {
-        owner = "wbadart";
-        repo = "hpython";
-        rev = "develop";
-        sha256 = "1rwwrfq26sf607ypbq5vmarv3i5ahg9bjbsh06gjk60zzkfzw64w";
-      };
       language-python = pkgs.fetchFromGitHub {
         owner = "wbadart";
         repo = "language-python";

@@ -1,2 +1,2 @@
-:set -Wall -Wno-name-shadowing
+:set -Wall -XTypeApplications -XOverloadedStrings
 :set -isrc

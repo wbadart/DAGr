@@ -42,3 +42,18 @@ executable jsonpycomp
                      , utf8-string
   hs-source-dirs:      app
   default-language:    Haskell2010
+
+test-suite jsonpycomp-tests
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  build-depends:       base >=4.13 && <4.14
+                     , jsonpycomp
+                     , aeson
+                     , bytestring
+                     , filepath
+                     , language-python
+                     , tasty
+                     , tasty-golden
+                     , tasty-hunit
+                     , utf8-string
+  hs-source-dirs: tests

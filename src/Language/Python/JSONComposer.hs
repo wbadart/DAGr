@@ -71,4 +71,4 @@ data CompositionArg
 
 instance FromJSON CompositionArg where
   parseJSON (JSON.String value) = pure (Expression (T.unpack value))
-  parseJSON v                   = withObject "Another" (\_ -> Another <$> parseJSON v) v
+  parseJSON v = withObject "Another" (\_ -> Another <$> parseJSON v) v

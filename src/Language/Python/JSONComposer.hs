@@ -38,9 +38,11 @@ data JSONPyComposition = JSONPyComposition
   } deriving (Show, Generic, FromJSON)
 
 parse :: JSONPyComposition -> Either ParseError (Module SrcSpan)
-parse j =
-  let g               = toGraph j
-      assignmentOrder = topsort g
+parse = parseGraph . toGraph
+
+parseGraph :: Gr NodeLabel Int -> Either ParseError (Module SrcSpan)
+parseGraph g =
+  let assignmentOrder = topsort g
       mkAssignment ctx = do
         let NodeLabel { identifier, value } = lab' ctx
             inputs                          = lpre' ctx
@@ -49,11 +51,11 @@ parse j =
         if null inputs
           then return (Assign [lhs] rhs SpanEmpty)
           else do
-            exprs <- traverse (parseArgs g . fst) (sortOn snd inputs)
+            exprs <- traverse (parseArgs . fst) (sortOn snd inputs)
             let args = (`ArgExpr` SpanEmpty) . fst <$> exprs
             return (Assign [lhs] (Call rhs args SpanEmpty) SpanEmpty)
   in  Module <$> traverse (mkAssignment . context g) assignmentOrder
-  where parseArgs g = (`parseExpr` "") . identifier . fromJust . lab g
+  where parseArgs = (`parseExpr` "") . identifier . fromJust . lab g
 
 data NodeLabel = NodeLabel
   { identifier :: String

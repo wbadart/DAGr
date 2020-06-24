@@ -40,12 +40,12 @@ data JSONPyComposition = JSONPyComposition
 parse :: JSONPyComposition -> Either ParseError (Module SrcSpan)
 parse = parseGraph . toGraph
 
-parseGraph :: Gr NodeLabel Int -> Either ParseError (Module SrcSpan)
+parseGraph :: Gr (String, String) Int -> Either ParseError (Module SrcSpan)
 parseGraph g =
   let assignmentOrder = topsort g
       mkAssignment ctx = do
-        let NodeLabel { identifier, value } = lab' ctx
-            inputs                          = lpre' ctx
+        let (identifier, value) = lab' ctx
+            inputs              = lpre' ctx
         (lhs, _) <- parseExpr identifier ""
         (rhs, _) <- parseExpr value ""
         if null inputs
@@ -55,14 +55,9 @@ parseGraph g =
             let args = (`ArgExpr` SpanEmpty) . fst <$> exprs
             return (Assign [lhs] (Call rhs args SpanEmpty) SpanEmpty)
   in  Module <$> traverse (mkAssignment . context g) assignmentOrder
-  where parseArgs = (`parseExpr` "") . identifier . fromJust . lab g
+  where parseArgs = (`parseExpr` "") . fst . fromJust . lab g
 
-data NodeLabel = NodeLabel
-  { identifier :: String
-  , value      :: String
-  } deriving (Eq, Ord, Show)
-
-toGraph :: JSONPyComposition -> Gr NodeLabel Int
+toGraph :: JSONPyComposition -> Gr (String, String) Int
 toGraph JSONPyComposition { nodes, edges } =
   let nodeId = (M.!) (reverseMap $ M.fromList $ zip [0 ..] $ M.keys nodes)
       labeledEdges =
@@ -70,6 +65,6 @@ toGraph JSONPyComposition { nodes, edges } =
           | (dst, srcs) <- M.toList edges
           , (i  , src ) <- zip [0 ..] srcs
           ]
-      labeledNodes = zip [0 ..] (uncurry NodeLabel <$> M.toList nodes)
+      labeledNodes = zip [0 ..] (M.toList nodes)
   in  insEdges labeledEdges $ insNodes labeledNodes empty
   where reverseMap = M.fromList . fmap swap . M.toList

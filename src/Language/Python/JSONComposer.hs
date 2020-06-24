@@ -43,19 +43,20 @@ parse = parseGraph . toGraph
 parseGraph :: Gr (String, String) Int -> Either ParseError (Module SrcSpan)
 parseGraph g =
   let assignmentOrder = topsort g
-      mkAssignment ctx = do
-        let (identifier, value) = lab' ctx
-            inputs              = lpre' ctx
-        (lhs, _) <- parseExpr identifier ""
-        (rhs, _) <- parseExpr value ""
-        if null inputs
-          then return (Assign [lhs] rhs SpanEmpty)
-          else do
-            exprs <- traverse (parseArgs . fst) (sortOn snd inputs)
-            let args = (`ArgExpr` SpanEmpty) . fst <$> exprs
-            return (Assign [lhs] (Call rhs args SpanEmpty) SpanEmpty)
   in  Module <$> traverse (mkAssignment . context g) assignmentOrder
-  where parseArgs = (`parseExpr` "") . fst . fromJust . lab g
+ where
+  mkAssignment ctx = do
+    let (identifier, value) = lab' ctx
+        inputs              = lpre' ctx
+    (lhs, _) <- parseExpr identifier ""
+    (rhs, _) <- parseExpr value ""
+    if null inputs
+      then return (Assign [lhs] rhs SpanEmpty)
+      else do
+        exprs <- traverse (parseArgs . fst) (sortOn snd inputs)
+        let args = (`ArgExpr` SpanEmpty) . fst <$> exprs
+        return (Assign [lhs] (Call rhs args SpanEmpty) SpanEmpty)
+  parseArgs = (`parseExpr` "") . fst . fromJust . lab g
 
 toGraph :: JSONPyComposition -> Gr (String, String) Int
 toGraph JSONPyComposition { nodes, edges } =

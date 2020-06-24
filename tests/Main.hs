@@ -42,5 +42,7 @@ pipeline contents =
       py   = fmap prettyText . parse <$> json
   in  pure $ maybe
         (error "JSON decode failed")
-        (either (error "JSONComposer parse failed") (BS.pack . UTF8.encode))
+        (either (error "JSONComposer parse failed") (BS.pack . UTF8.encode . strip))
         py
+ where
+  strip = unlines . lines

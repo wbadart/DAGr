@@ -53,6 +53,8 @@ test-suite jsonpycomp-tests
                      , jsonpycomp
                      , aeson
                      , bytestring
+                     , containers
+                     , fgl
                      , filepath
                      , language-python
                      , tasty

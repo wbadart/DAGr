@@ -53,9 +53,9 @@ parseGraph g =
       then return (Assign [lhs] rhs SpanEmpty)
       else do
         exprs <- traverse (parseArgs . fst) (sortOn snd inputs)
-        let args = (`ArgExpr` SpanEmpty) . fst <$> exprs
+        let args = (`ArgExpr` SpanEmpty) <$> exprs
         return (Assign [lhs] (Call rhs args SpanEmpty) SpanEmpty)
-  parseArgs = (`parseExpr` "") . fst . fromJust . lab g
+  parseArgs = fmap fst . (`parseExpr` "") . fst . fromJust . lab g
 
 toGraph :: JSONPyComposition -> Gr (String, String) Int
 toGraph JSONPyComposition { nodes, edges } =

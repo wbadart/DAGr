@@ -19,22 +19,16 @@ commentary with @some markup@.
 module Language.Python.JSONComposer where
 
 import           Data.Aeson                     ( FromJSON(..) )
-import           Data.Graph.Inductive           ( LEdge
-                                                , Node
-                                                , lab
-                                                , mkGraph
-                                                , pre
-                                                , topsort
+import           Data.Graph.Inductive    hiding ( nodes
+                                                , edges
                                                 )
-import           Data.Graph.Inductive.PatriciaTree
-                                                ( Gr )
 import           Data.Map.Strict                ( Map )
 import qualified Data.Map.Strict               as M
 import           Data.Maybe                     ( fromJust )
 import           Data.Tuple                     ( swap )
 import           GHC.Generics                   ( Generic )
 
-import           Language.Python.Common
+import           Language.Python.Common  hiding ( empty )
 import           Language.Python.Version3       ( parseExpr )
 
 data JSONPyComposition = JSONPyComposition
@@ -43,37 +37,36 @@ data JSONPyComposition = JSONPyComposition
   } deriving (Show, Generic, FromJSON)
 
 parse :: JSONPyComposition -> Either ParseError (Module SrcSpan)
-parse j@JSONPyComposition { nodes, edges } =
+parse j =
   let g               = toGraph j
       assignmentOrder = topsort g
-      mkAssignment node = do
-        let identifier = fromJust (lab g node)
-            value      = nodes M.! identifier
-            isPrim     = null (pre g node)
+      mkAssignment ctx = do
+        let NodeLabel { identifier, value } = lab' ctx
+            inputs                          = pre' ctx
         (lhs, _) <- parseExpr identifier ""
         (rhs, _) <- parseExpr value ""
-        if isPrim
+        if null inputs
           then return (Assign [lhs] rhs SpanEmpty)
           else do
-            exprs <- traverse (`parseExpr` "") (edges M.! identifier)
+            exprs <- traverse (parseArgs g) inputs
             let args = (`ArgExpr` SpanEmpty) . fst <$> exprs
             return (Assign [lhs] (Call rhs args SpanEmpty) SpanEmpty)
-  in  Module <$> traverse mkAssignment assignmentOrder
+  in  Module <$> traverse (mkAssignment . context g) assignmentOrder
+  where parseArgs g = (`parseExpr` "") . identifier . fromJust . lab g
 
-toGraph :: JSONPyComposition -> Gr String ()
+data NodeLabel = NodeLabel
+  { identifier :: String
+  , value      :: String
+  } deriving (Eq, Ord, Show)
+
+toGraph :: JSONPyComposition -> Gr NodeLabel ()
 toGraph JSONPyComposition { nodes, edges } =
-  let labeledNodes = zip [0 ..] $ M.keys nodes
-      labeledEdges = concatMap
-        (uncurry mkEdgeList)
-        (M.toList (replaceLabels (reverseMap $ M.fromList labeledNodes) edges))
-  in  mkGraph labeledNodes labeledEdges
- where
-  mkEdgeList :: Node -> [Node] -> [LEdge ()]
-  mkEdgeList dst incoming = [ (src, dst, ()) | src <- incoming ]
-
-  replaceLabels :: (Ord a, Ord b) => Map a b -> Map a [a] -> Map b [b]
-  replaceLabels table =
-    let find = (table M.!) in M.mapKeys find . fmap (fmap find)
-
-  reverseMap :: (Ord a, Ord b) => Map a b -> Map b a
-  reverseMap = M.fromList . fmap swap . M.toList
+  let nodeId = (M.!) (reverseMap $ M.fromList $ zip [0 ..] $ M.keys nodes)
+      labeledEdges =
+          [ (nodeId src, nodeId dst, ())
+          | (dst, srcs) <- M.toList edges
+          , src         <- srcs
+          ]
+      labeledNodes = zip [0 ..] (uncurry NodeLabel <$> M.toList nodes)
+  in  insEdges labeledEdges $ insNodes labeledNodes empty
+  where reverseMap = M.fromList . fmap swap . M.toList

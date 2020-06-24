@@ -59,12 +59,13 @@ parseGraph g =
 
 toGraph :: JSONPyComposition -> Gr (String, String) Int
 toGraph JSONPyComposition { nodes, edges } =
-  let nodeId = (M.!) (reverseMap $ M.fromList $ zip [0 ..] $ M.keys nodes)
+  let labeledNodes = zip [0 ..] (M.toList nodes)
       labeledEdges =
           [ (nodeId src, nodeId dst, i)
           | (dst, srcs) <- M.toList edges
           , (i  , src ) <- zip [0 ..] srcs
           ]
-      labeledNodes = zip [0 ..] (M.toList nodes)
   in  insEdges labeledEdges $ insNodes labeledNodes empty
-  where reverseMap = M.fromList . fmap swap . M.toList
+ where
+  nodeId     = (M.!) (reverseMap $ M.fromList $ zip [0 ..] $ M.keys nodes)
+  reverseMap = M.fromList . fmap swap . M.toList

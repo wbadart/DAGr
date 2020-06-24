@@ -1,0 +1,34 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.1.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 1ce24187d5083db02e3ab488a356c2a065a7135b768a08cd1c2b3eda3b3565cc
+
+name:           DAGr
+version:        0.1.0.0
+category:       Web
+homepage:       https://github.com/githubuser/DAGr#readme
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2020 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+
+executable DAGr
+  main-is: Main.hs
+  other-modules:
+      Paths_DAGr
+  hs-source-dirs:
+      src
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , jsonpycomp
+    , language-python
+    , yesod
+  default-language: Haskell2010

@@ -4,16 +4,16 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1ce24187d5083db02e3ab488a356c2a065a7135b768a08cd1c2b3eda3b3565cc
+-- hash: fd36c4a1e6048d2beba7c22263bdfcda9c9b897d9ac16f6b23f9d38a961ced68
 
 name:           DAGr
 version:        0.1.0.0
 category:       Web
-homepage:       https://github.com/githubuser/DAGr#readme
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2020 Author name here
-license:        BSD3
+homepage:       https://github.com/wbadart/DAGr
+author:         Will Badart
+maintainer:     will@willbadart.com
+copyright:      2020 Will Badart
+license:        GPL3
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:

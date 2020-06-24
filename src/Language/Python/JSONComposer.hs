@@ -66,7 +66,7 @@ toGraph JSONPyComposition { nodes, edges } =
       labeledEdges =
           [ (nodeId src, nodeId dst, i)
           | (dst, srcs) <- M.toList edges
-          , (i, src)    <- zip [0 .. ] srcs
+          , (i  , src ) <- zip [0 ..] srcs
           ]
       labeledNodes = zip [0 ..] (uncurry NodeLabel <$> M.toList nodes)
   in  insEdges labeledEdges $ insNodes labeledNodes empty

@@ -10,7 +10,7 @@ import           Test.Tasty                     ( TestTree
                                                 , testGroup
                                                 )
 import           Test.Tasty.Golden              ( findByExtension
-                                                , goldenVsString
+                                                , goldenVsStringDiff
                                                 )
 import           System.FilePath                ( takeBaseName
                                                 , replaceExtension
@@ -28,7 +28,8 @@ goldenTests = do
   jsonFiles <- findByExtension [".json"] "./tests"
   return $ testGroup
     "JSONComposer Golden Tests"
-    [ goldenVsString (takeBaseName jsonFile)
+    [ goldenVsStringDiff (takeBaseName jsonFile)
+                     (\ref new -> ["diff", "-u", ref, new])
                      pyFile
                      (BS.readFile jsonFile >>= pipeline)
     | jsonFile <- jsonFiles

@@ -1,74 +1,79 @@
-{-# LANGUAGE BlockArguments #-}
+{-|
+Module      : Language.Python.JSONComposer
+Description : Parse JSONComposer JSON object to Python expressions
+Copyright   : (c) Will Badart, 2020
+License     : GPL-3
+Maintainer  : will@willbadart.com
+Stability   : experimental
+Portability : POSIX
+
+Here is a longer description of this module, containing some
+commentary with @some markup@.
+-}
+
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Language.Python.JSONComposer where
 
-import           Data.Aeson                     ( FromJSON(..)
-                                                , withObject
+import           Data.Aeson                     ( FromJSON(..) )
+import           Data.Graph.Inductive           ( LEdge
+                                                , Node
+                                                , lab
+                                                , mkGraph
+                                                , pre
+                                                , topsort
                                                 )
-import qualified Data.Aeson.Types              as JSON
+import           Data.Graph.Inductive.PatriciaTree
+                                                ( Gr )
 import           Data.Map.Strict                ( Map )
 import qualified Data.Map.Strict               as M
-import qualified Data.Text                     as T
+import           Data.Maybe                     ( fromJust )
+import           Data.Tuple                     ( swap )
 import           GHC.Generics                   ( Generic )
+
 import           Language.Python.Common
-import           Language.Python.Version3
+import           Language.Python.Version3       ( parseExpr )
 
--- | Try to parse a 'JSONPyComposition' to a Python 3 'Expr'.
-parse :: JSONPyComposition -> Either ParseError (Expr SrcSpan)
-parse JSONPyComposition { callableExpr, args } = do
-  (expr, _)  <- parseExpr callableExpr ""
-  parsedArgs <- traverse (uncurry parseArgs) (M.toList args)
-  return (Call (Paren expr SpanEmpty) parsedArgs SpanEmpty)
- where
-  parseArgs param (Expression argExpr) = do
-    (expr, _) <- parseExpr argExpr ""
-    return case param of
-      "__args"   -> ArgVarArgsPos expr SpanEmpty
-      "__kwargs" -> ArgVarArgsKeyword expr SpanEmpty
-      _          -> ArgKeyword (Ident param SpanEmpty) expr SpanEmpty
-  parseArgs param (Another jsonpy) = do
-    argExpr <- parse jsonpy
-    return (ArgKeyword (Ident param SpanEmpty) argExpr SpanEmpty)
-
--- | A 'JSONPyComposition' models a Python 3 call graph, specifying nested
--- callables and their arguments. For example,
---
--- > JSONPyComposition "merge" (M.fromList
--- >   [ ("foo", Another (JSONPyComposition "get_stream0" mempty))
--- >   , ("__args", Expression "[stream1, stream2]")
--- >   ])
---
--- corresponds to the Python function call @merge(*[stream1, stream2],
--- foo=get_stream0())@. See 'args' and 'CompositionArg' for further details.
--- N.B. 'JSONPyComposition' has a 'FromJSON' instance that allows you to
--- express the above with the JSON object:
---
--- > {
--- >   "callableExpr": "merge",
--- >   "args": {
--- >     "foo":    {"callableExpr": "get_stream0", "args": {}},
--- >     "__args": "[stream1, stream2]"
--- >   }
--- > }
 data JSONPyComposition = JSONPyComposition
-  { callableExpr :: String                     -- ^ An literal Python expression which evaluates to
-                                               -- a callable
-  , args         :: Map String CompositionArg  -- ^ The keyword arguments to that callable
-                                               -- (reserved keys @"__args"@ and @"__kwargs"@
-                                               -- specify star expansion)
-  } deriving (Show, Eq, Generic, FromJSON)
+  { nodes :: Map String String
+  , edges :: Map String [String]
+  } deriving (Show, Generic, FromJSON)
 
--- | The values of the 'args' to a 'JSONPyComposition' can either be a 'String'
--- conatining a Python expression or another 'JSONPyComposition' object,
--- representing a nested call.
-data CompositionArg
-  = Expression String          -- ^ A literal Python expression which will be supplied as the argument
-  | Another JSONPyComposition  -- ^ Specifies a nested call
-  deriving (Show, Eq, Generic)
+parse :: JSONPyComposition -> Either ParseError (Module SrcSpan)
+parse j@(JSONPyComposition { nodes, edges }) =
+  let g               = toGraph j
+      assignmentOrder = topsort g
+      mkAssignment node = do
+        let identifier = fromJust (lab g node)
+            value      = nodes M.! identifier
+            isPrim     = length (pre g node) == 0
+        (lhs, _) <- parseExpr identifier ""
+        (rhs, _) <- parseExpr value ""
+        if isPrim
+          then return (Assign [lhs] rhs SpanEmpty)
+          else do
+            exprs <- traverse (`parseExpr` "") (edges M.! identifier)
+            let args = ((`ArgExpr` SpanEmpty) . fst) <$> exprs
+            return (Assign [lhs] (Call rhs args SpanEmpty) SpanEmpty)
+  in  Module <$> traverse mkAssignment assignmentOrder
 
-instance FromJSON CompositionArg where
-  parseJSON (JSON.String value) = pure (Expression (T.unpack value))
-  parseJSON v = withObject "Another" (\_ -> Another <$> parseJSON v) v
+toGraph :: JSONPyComposition -> Gr String ()
+toGraph JSONPyComposition { nodes, edges } =
+  let labeledNodes = zip [0 ..] $ M.keys nodes
+      labeledEdges = concatMap
+        (uncurry mkEdgeList)
+        (M.toList (replaceLabels (reverseMap $ M.fromList labeledNodes) edges))
+  in  mkGraph labeledNodes labeledEdges
+ where
+  mkEdgeList :: Node -> [Node] -> [LEdge ()]
+  mkEdgeList dst incoming = [ (src, dst, ()) | src <- incoming ]
+
+  replaceLabels :: (Ord a, Ord b) => Map a b -> Map a [a] -> Map b [b]
+  replaceLabels table =
+    let find = (table M.!) in M.mapKeys find . fmap (fmap find)
+
+  reverseMap :: (Ord a, Ord b) => Map a b -> Map b a
+  reverseMap = M.fromList . fmap swap . M.toList

@@ -4,6 +4,7 @@ in
   pkgs.mkShell {
     buildInputs = with pkgs.haskellPackages; [
       ghcid
+      nodejs
       stack
     ];
   }

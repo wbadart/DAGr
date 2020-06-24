@@ -16,6 +16,8 @@ dependencies:
 - aeson
 - jsonpycomp
 - language-python
+- wai-cors
+- warp
 - yesod
 
 executables:

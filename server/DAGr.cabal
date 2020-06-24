@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: fd36c4a1e6048d2beba7c22263bdfcda9c9b897d9ac16f6b23f9d38a961ced68
+-- hash: 8dcdf8125002c37addee865533c4c629ae7dc77e118821a69e2c72bf86b1b0dc
 
 name:           DAGr
 version:        0.1.0.0
@@ -14,7 +14,6 @@ author:         Will Badart
 maintainer:     will@willbadart.com
 copyright:      2020 Will Badart
 license:        GPL3
-license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
@@ -30,5 +29,7 @@ executable DAGr
     , base >=4.7 && <5
     , jsonpycomp
     , language-python
+    , wai-cors
+    , warp
     , yesod
   default-language: Haskell2010

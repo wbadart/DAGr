@@ -43,20 +43,20 @@ data JSONPyComposition = JSONPyComposition
   } deriving (Show, Generic, FromJSON)
 
 parse :: JSONPyComposition -> Either ParseError (Module SrcSpan)
-parse j@(JSONPyComposition { nodes, edges }) =
+parse j@JSONPyComposition { nodes, edges } =
   let g               = toGraph j
       assignmentOrder = topsort g
       mkAssignment node = do
         let identifier = fromJust (lab g node)
             value      = nodes M.! identifier
-            isPrim     = length (pre g node) == 0
+            isPrim     = null (pre g node)
         (lhs, _) <- parseExpr identifier ""
         (rhs, _) <- parseExpr value ""
         if isPrim
           then return (Assign [lhs] rhs SpanEmpty)
           else do
             exprs <- traverse (`parseExpr` "") (edges M.! identifier)
-            let args = ((`ArgExpr` SpanEmpty) . fst) <$> exprs
+            let args = (`ArgExpr` SpanEmpty) . fst <$> exprs
             return (Assign [lhs] (Call rhs args SpanEmpty) SpanEmpty)
   in  Module <$> traverse mkAssignment assignmentOrder
 

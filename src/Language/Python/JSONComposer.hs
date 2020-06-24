@@ -18,7 +18,7 @@ commentary with @some markup@.
 
 module Language.Python.JSONComposer where
 
-import           Data.Aeson                     ( FromJSON(..) )
+import           Data.Aeson                     ( FromJSON )
 import           Data.Graph.Inductive    hiding ( nodes
                                                 , edges
                                                 )
@@ -28,7 +28,6 @@ import qualified Data.Map.Strict               as M
 import           Data.Maybe                     ( fromJust )
 import           Data.Tuple                     ( swap )
 import           GHC.Generics                   ( Generic )
-
 import           Language.Python.Common  hiding ( empty )
 import           Language.Python.Version3       ( parseExpr )
 

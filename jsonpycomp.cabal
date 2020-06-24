@@ -22,13 +22,9 @@ library
   exposed-modules:     Language.Python.JSONComposer
   build-depends:       base >=4.13 && <4.14
                      , aeson
-                     , bytestring
                      , containers
                      , fgl
                      , language-python
-                     , text
-                     , validation
-                     , vector
   ghc-options:
     -Wall
 
@@ -59,6 +55,5 @@ test-suite jsonpycomp-tests
                      , language-python
                      , tasty
                      , tasty-golden
-                     , tasty-hunit
                      , utf8-string
   hs-source-dirs: tests

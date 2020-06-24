@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Main where
 
 import           Data.Aeson                     ( decode )
@@ -15,7 +13,6 @@ import           Test.Tasty.Golden              ( findByExtension
 import           System.FilePath                ( takeBaseName
                                                 , replaceExtension
                                                 )
-
 import           Language.Python.Common         ( prettyText )
 
 import           Language.Python.JSONComposer
@@ -29,20 +26,18 @@ goldenTests = do
   return $ testGroup
     "JSONComposer Golden Tests"
     [ goldenVsStringDiff (takeBaseName jsonFile)
-                     (\ref new -> ["diff", "-u", ref, new])
-                     pyFile
-                     (BS.readFile jsonFile >>= pipeline)
+                         (\ref new -> ["diff", "-u", ref, new])
+                         pyFile
+                         (pipeline <$> BS.readFile jsonFile)
     | jsonFile <- jsonFiles
     , let pyFile = replaceExtension jsonFile ".py"
     ]
 
-pipeline :: BS.ByteString -> IO BS.ByteString
+pipeline :: BS.ByteString -> BS.ByteString
 pipeline contents =
-  let json = decode @JSONPyComposition contents
+  let json = decode contents
       py   = fmap prettyText . parse <$> json
-  in  pure $ maybe
-        (error "JSON decode failed")
-        (either (error "JSONComposer parse failed") (BS.pack . UTF8.encode . strip))
-        py
- where
-  strip = unlines . lines
+  in  maybe (error "JSON decode failed")
+            (either (error "JSONComposer parse failed") toBS)
+            py
+  where toBS = BS.pack . UTF8.encode . unlines . lines

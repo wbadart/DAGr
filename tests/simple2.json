@@ -1,0 +1,16 @@
+{
+        "nodes": {
+                "adder": "op.add",
+                "printer": "print",
+                "multiplier": "op.mul",
+                "i1": "1",
+                "i2": "6",
+                "i3": "10",
+                "i4": "\"sum:\""
+        },
+        "edges": {
+                "printer": ["i4", "adder"],
+                "multiplier": ["adder", "i3"],
+                "adder": ["i1", "i2"]
+        }
+}

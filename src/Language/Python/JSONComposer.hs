@@ -25,7 +25,6 @@ import           Data.Graph.Inductive    hiding ( nodes
 import           Data.List                      ( sortOn )
 import           Data.Map.Strict                ( Map )
 import qualified Data.Map.Strict               as M
-import           Data.Maybe                     ( fromJust )
 import           Data.Tuple                     ( swap )
 import           GHC.Generics                   ( Generic )
 import           Language.Python.Common  hiding ( empty )
@@ -55,7 +54,7 @@ parseGraph g =
         exprs <- traverse (parseArgs . fst) (sortOn snd inputs)
         let args = (`ArgExpr` SpanEmpty) <$> exprs
         return (Assign [lhs] (Call rhs args SpanEmpty) SpanEmpty)
-  parseArgs = fmap fst . (`parseExpr` "") . fst . fromJust . lab g
+  parseArgs = fmap fst . (`parseExpr` "") . fst . maybe (error "malformed graph") id . lab g
 
 toGraph :: JSONPyComposition -> Gr (String, String) Int
 toGraph JSONPyComposition { nodes, edges } =

@@ -1,45 +1,47 @@
 <script>
-  export let name;
+	import { onMount } from 'svelte';
+  import { writable } from 'svelte/store';
+  import CodeMirror from 'codemirror';
+  import 'codemirror/lib/codemirror.css';
+  import 'code-mirror-themes/themes/monokai.css';
+  import 'codemirror/mode/python/python';
   const program = {
     nodes: {
-      i1: "6"
     },
     edges: {
     }
   };
-  const userAction = async () => {
-    const response = await fetch('http://localhost:3000/', {
-      method: 'POST',
-      body: JSON.stringify(program),
-      headers: { 'Content-Type': 'application/json' }
-    });
-    console.log(await response.text());
-  }
+  const editors = {setup: undefined, teardown: undefined},
+        setup = writable(""),
+        teardown = writable("");
+  let setup_elem, teardown_elem,
+      canvas, ctx;
+  onMount(() => {
+    editors.setup = CodeMirror(setup_elem, {value: "# setup", mode: "python", theme: "monokai"});
+    editors.teardown = CodeMirror(teardown_elem, {value: "# teardown", mode: "python", theme: "monokai"});
+    ctx = canvas.getContext("2d");
+  });
+
+  const code_edit = source => e => {
+    const val = editors[source].doc.cm.getDoc().getValue();
+    (source === "setup" ? setup : teardown).set(val);
+  };
 </script>
 
-<main>
-  <h1 on:mousedown="{userAction}">Hello {name}!</h1>
-  <p>Visit the <a href="https://svelte.dev/tutorial">Svelte tutorial</a> to learn how to build Svelte apps.</p>
-</main>
+<aside>
+  <div bind:this={setup_elem} on:keyup={code_edit("setup")}></div>
+  <div bind:this={teardown_elem} on:keyup={code_edit("teardown")}></div>
+</aside>
 
-<style>
-  main {
-    text-align: center;
-    padding: 1em;
-    max-width: 240px;
-    margin: 0 auto;
-  }
+<canvas bind:this={canvas}></canvas>
 
-  h1 {
-    color: #ff3e00;
-    text-transform: uppercase;
-    font-size: 4em;
-    font-weight: 100;
-  }
-
-  @media (min-width: 640px) {
-    main {
-      max-width: none;
-    }
-  }
+<style lang="sass">
+  aside
+    height: 100%
+    border-right: 1px solid black
+    width: 320px
+    & div:nth-child(1)
+      padding-bottom: 1em
+  canvas
+    flex-grow: 2
 </style>

@@ -59,6 +59,7 @@ subscriptions _ =
             (D.field "pageY" D.float)
         )
     , E.onResize ( \_ _ -> Resized )
+    , E.onKeyUp ( D.map Space keyCode )
     ]
 
 
@@ -100,6 +101,7 @@ type Msg =
   | MouseMove Float Float
   | FoundSvg ( Result Browser.Dom.Error Browser.Dom.Element )
   | Resized
+  | Space Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -147,6 +149,21 @@ update msg model =
 
     Resized -> ( model, Task.attempt FoundSvg ( Browser.Dom.getElement "svg" ) )
 
+    Space code -> 
+      if code == 32
+        then
+          let updatedNodes =
+                Dict.insert
+                  ( Dict.size prog.graph.nodes )
+                  { name = "", expr = "", pos = model.mousePosition }
+                  prog.graph.nodes
+              g = prog.graph
+          in
+          ( { model | program = { prog | graph = { g | nodes = updatedNodes } } }
+          , Cmd.none
+          )
+        else ( model, Cmd.none )
+
 
 -- ==========
 -- Rendering
@@ -156,11 +173,11 @@ update msg model =
 view : Model -> Html Msg
 view model =
   div
-    [ class "app", onClick NewNode ]
-    ( List.map viewNode ( Dict.values model.program.graph.nodes ) )
+    [ class "app" ]
+    ( List.map viewNode ( Dict.toList model.program.graph.nodes ) )
 
-viewNode :  Node -> Html Msg
-viewNode node =
+viewNode :  ( Int, Node ) -> Html Msg
+viewNode ( i, node ) =
   let ( x, y ) = node.pos
   in
   div
@@ -168,5 +185,6 @@ viewNode node =
     , style "left" ( ( String.fromFloat x ) ++ "px" )
     , style "top"  ( ( String.fromFloat y ) ++ "px" )
     ]
-    [ text "node"
+    [ input [ onInput ( EditNodeName i ), placeholder "node name" ] []
+    , input [ onInput ( EditNodeExpr i ), placeholder "expression" ] []
     ]

@@ -27,13 +27,31 @@ import           Data.Map.Strict                ( Map )
 import qualified Data.Map.Strict               as M
 import           Data.Tuple                     ( swap )
 import           GHC.Generics                   ( Generic )
-import           Language.Python.Common  hiding ( empty )
-import           Language.Python.Version3       ( parseExpr )
+import           Language.Python.Common  hiding ( (<>)
+                                                , empty
+                                                )
+import           Language.Python.Version3       ( parseExpr
+                                                , parseModule
+                                                )
 
 data JSONPyComposition = JSONPyComposition
   { nodes :: Map String String
   , edges :: Map String [String]
   } deriving (Show, Generic, FromJSON)
+
+data JSONPyProgram = JSONPyProgram
+  { setup    :: String
+  , teardown :: String
+  , graph    :: JSONPyComposition
+  } deriving (Show, Generic, FromJSON)
+
+parseProgram :: JSONPyProgram -> Either ParseError (Module SrcSpan)
+parseProgram JSONPyProgram { setup, teardown, graph } = do
+  (Module setupProg, _)    <- parseModule setup ""
+  Module prog              <- parse graph
+  (Module teardownProg, _) <- parseModule teardown ""
+  let finally = if null teardownProg then [Pass SpanEmpty] else teardownProg
+  return (Module [Try (setupProg <> prog) [] [] finally SpanEmpty])
 
 parse :: JSONPyComposition -> Either ParseError (Module SrcSpan)
 parse = parseGraph . toGraph
@@ -54,7 +72,8 @@ parseGraph g =
         exprs <- traverse (parseArgs . fst) (sortOn snd inputs)
         let args = (`ArgExpr` SpanEmpty) <$> exprs
         return (Assign [lhs] (Call rhs args SpanEmpty) SpanEmpty)
-  parseArgs = fmap fst . (`parseExpr` "") . fst . maybe (error "malformed graph") id . lab g
+  parseArgs =
+    fmap fst . (`parseExpr` "") . fst . maybe (error "bad graph") id . lab g
 
 toGraph :: JSONPyComposition -> Gr (String, String) Int
 toGraph JSONPyComposition { nodes, edges } =

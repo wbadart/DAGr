@@ -8,7 +8,7 @@ module Main where
 
 import           Data.Aeson                     ( Result(..) )
 import           Data.Functor                   ( (<&>) )
-import           Language.Python.JSONComposer   ( parse )
+import           Language.Python.JSONComposer   ( parseProgram )
 import           Language.Python.Common         ( prettyText )
 import           Network.Wai.Handler.Warp       ( run )
 import           Network.Wai.Middleware.Cors
@@ -17,7 +17,7 @@ import           Yesod
 data HelloWorld = HelloWorld
 
 mkYesod "HelloWorld" [parseRoutes|
-/ HomeR POST
+/     HomeR    POST
 |]
 
 instance Yesod HelloWorld
@@ -25,7 +25,7 @@ instance Yesod HelloWorld
 postHomeR :: Handler String
 postHomeR = parseCheckJsonBody <&> \case
   Error   msg  -> msg
-  Success json -> either show prettyText (parse json)
+  Success json -> either show prettyText (parseProgram json)
 
 main :: IO ()
 main = do

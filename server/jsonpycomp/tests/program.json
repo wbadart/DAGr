@@ -1,0 +1,13 @@
+{
+        "setup": "from os import environ",
+        "teardown": "del environ['FOO']",
+        "graph": {
+                "nodes": {
+                        "i1": "environ['FOO']",
+                        "printer": "print"
+                },
+                "edges": {
+                        "printer": ["i1"]
+                }
+        }
+}

@@ -36,7 +36,7 @@ goldenTests = do
 pipeline :: BS.ByteString -> BS.ByteString
 pipeline contents =
   let json = decode contents
-      py   = fmap prettyText . parse <$> json
+      py   = fmap prettyText . parseProgram <$> json
   in  maybe (error "JSON decode failed")
             (either (error "JSONComposer parse failed") toBS)
             py

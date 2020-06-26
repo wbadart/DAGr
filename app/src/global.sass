@@ -1,16 +1,22 @@
-body
-  color: red
-  margin: 0
-  display: flex
-  flex-direction: row
-
-aside, main
-  display: inline-block
+@import "~milligram-sass"
 
 main
-  background-color: #eee
-  flex-grow: 2
-  padding: 1rem
+  height: inherit
 
-div.app
-  height: 100%
+div[data-elm-hot="true"]
+  height: 100% !important
+
+svg
+  background-color: #272822
+  cursor: pointer
+
+// body
+//   color: red
+//   margin: 0
+
+// main
+//   background-color: #eee
+//   padding: 1rem
+
+// div.app
+//   height: 100%

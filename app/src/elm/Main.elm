@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
 import Dict exposing ( Dict )
@@ -8,17 +8,27 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 -- import Json.Decode as D
 
+port setupReceiver : (String -> msg) -> Sub msg
+port teardownReceiver : (String -> msg) -> Sub msg
+
 main : Program () Model Msg
 main =
   Browser.element
-    { init = \_ -> ( { nodes = Dict.empty }, Cmd.none )
+    { init = \_ -> ( { setup = "", teardown = "", graph = Dict.empty }, Cmd.none )
     , view = view
     , update = update
-    , subscriptions = \_ -> Sub.none
+    , subscriptions = \_ -> Sub.batch [ setupReceiver EditSetup, teardownReceiver EditTeardown ]
     }
 
 type alias Model =
-  { nodes : Dict Int Node
+  { setup : String
+  , teardown : String
+  , graph : Dict Int Node
+  }
+
+type alias Graph =
+  { nodes : Dict String String
+  , edges : Dict String (List String)
   }
 
 type alias Node =
@@ -30,33 +40,37 @@ type Msg =
     NewNode
   | EditNodeName Int String
   | EditNodeExpr Int String
+  | EditSetup String
+  | EditTeardown String
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
     NewNode ->
-      ( { model | nodes = Dict.insert ( Dict.size model.nodes ) { name = "", expr = "" } model.nodes }
+      ( { model | graph = Dict.insert ( Dict.size model.graph ) { name = "", expr = "" } model.graph }
       , Cmd.none
       )
 
     EditNodeName i s ->
-      ( { model | nodes = Dict.update i ( Maybe.map (\n -> {n | name = s}) ) model.nodes }
+      ( { model | graph = Dict.update i ( Maybe.map (\n -> {n | name = s}) ) model.graph }
       , Cmd.none
       )
 
     EditNodeExpr i s ->
-      ( { model | nodes = Dict.update i ( Maybe.map (\n -> {n | expr = s}) ) model.nodes }
+      ( { model | graph = Dict.update i ( Maybe.map (\n -> {n | expr = s}) ) model.graph }
       , Cmd.none
       )
 
+    EditSetup    s -> ( { model | setup    = s }, Cmd.none )
+    EditTeardown s -> ( { model | teardown = s }, Cmd.none )
 
 view : Model -> Html Msg
 view model =
   div [ class "app", onClick NewNode ]
     [ div []
-        [ text ( "num nodes: " ++ ( String.fromInt ( Dict.size model.nodes ) ) )
+        [ text ( "num nodes: " ++ ( String.fromInt ( Dict.size model.graph ) ) )
         ]
-    , div [] ( List.map viewNode ( Dict.toList ( model.nodes ) ) )
+    , div [] ( List.map viewNode ( Dict.toList ( model.graph ) ) )
     ]
 
 viewNode : ( Int, Node ) -> Html Msg

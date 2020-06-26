@@ -1,6 +1,7 @@
 port module Main exposing (main)
 
 import Browser
+import Browser.Dom
 import Browser.Events as E
 import Dict exposing ( Dict )
 import Maybe exposing ( Maybe )
@@ -9,19 +10,21 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Svg exposing ( Svg, svg )
 import Svg.Attributes as A
+
+import Task
 import Json.Decode as D
 
 -- ==========
 -- Page setup
 -- ==========
 
-port setupReceiver : (String -> msg) -> Sub msg
-port teardownReceiver : (String -> msg) -> Sub msg
+port setupReceiver : ( String -> msg ) -> Sub msg
+port teardownReceiver : ( String -> msg ) -> Sub msg
 
 main : Program () Model Msg
 main =
   Browser.element
-    { init = \_ -> ( init, Cmd.none )
+    { init = \_ -> ( init, Task.attempt FoundSvg ( Browser.Dom.getElement "svg" ) )
     , view = view
     , update = update
     , subscriptions = subscriptions
@@ -30,6 +33,7 @@ main =
 init : Model
 init =
   { mousePosition = ( 0, 0 )
+  , svgOffset = 0
   , program =
     { setup = ""
     , teardown = ""
@@ -46,6 +50,7 @@ subscriptions _ =
     [ setupReceiver EditSetup
     , teardownReceiver EditTeardown
     , E.onMouseMove (D.map2 MouseMove (D.field "pageX" D.float) (D.field "pageY" D.float))
+    , E.onResize ( \_ _ -> Resized )
     ]
 
 
@@ -56,6 +61,7 @@ subscriptions _ =
 
 type alias Model =
   { mousePosition : ( Float, Float )
+  , svgOffset : Float
   , program :
     { setup : String
     , teardown : String
@@ -84,6 +90,8 @@ type Msg =
   | EditTeardown String
 
   | MouseMove Float Float
+  | FoundSvg ( Result Browser.Dom.Error Browser.Dom.Element )
+  | Resized
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -124,6 +132,13 @@ update msg model =
 
     MouseMove x y -> ( { model | mousePosition = ( x, y ) }, Cmd.none )
 
+    FoundSvg res ->
+      case res of
+        Err _   -> ( model, Cmd.none )
+        Ok elem -> ( { model | svgOffset = elem.element.x }, Cmd.none )
+
+    Resized -> ( model, Task.attempt FoundSvg ( Browser.Dom.getElement "svg" ) )
+
 
 -- ==========
 -- Rendering
@@ -133,15 +148,15 @@ update msg model =
 view : Model -> Html Msg
 view model =
   svg
-    [ A.width "100%", A.height "100%", onClick NewNode ]
-    ( List.map viewNode ( Dict.toList model.program.graph.nodes ) )
+    [ id "svg", A.width "100%", A.height "100%", onClick NewNode ]
+    ( List.map ( viewNode model.svgOffset ) ( Dict.toList model.program.graph.nodes ) )
 
-viewNode : ( Int, Node ) -> Svg Msg
-viewNode ( i, node ) =
+viewNode : Float -> ( Int, Node ) -> Svg Msg
+viewNode xOffset ( i, node ) =
   let ( x, y ) = node.pos
   in
   Svg.rect
-    [ A.x ( ( String.fromFloat ( x - 300 ) ) ++ "px" )
+    [ A.x ( ( String.fromFloat ( x - xOffset ) ) ++ "px" )
     , A.y ( ( String.fromFloat ( y ) ) ++ "px" )
     , A.width "100"
     , A.height "100"

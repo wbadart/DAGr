@@ -1,0 +1,39 @@
+cabal-version:       >=1.8
+name:                jsonpycomp
+version:             0.1.0.0
+synopsis:            A tiny JSON spec for Python call graphs
+description:         See README.md for full description.
+bug-reports:         https://github.com/wbadart/DAGr/issues
+license:             GPL-3
+license-file:        LICENSE
+author:              Will Badart
+maintainer:          will@willbadart.com
+copyright:           (c) 2020 Will Badart
+build-type:          Simple
+extra-source-files:  README.md
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Language.Python.JSONComposer
+  ghc-options:         -Wall
+  build-depends:       base >=4.13 && <4.14
+                     , aeson
+                     , containers
+                     , fgl
+                     , language-python
+
+test-suite jsonpycomp-tests
+  main-is:             Main.hs
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      tests
+  build-depends:       base >=4.13 && <4.14
+                     , jsonpycomp
+                     , aeson
+                     , bytestring
+                     , containers
+                     , fgl
+                     , filepath
+                     , language-python
+                     , tasty
+                     , tasty-golden
+                     , utf8-string

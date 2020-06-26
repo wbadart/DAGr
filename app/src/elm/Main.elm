@@ -24,7 +24,10 @@ port teardownReceiver : ( String -> msg ) -> Sub msg
 main : Program () Model Msg
 main =
   Browser.element
-    { init = \_ -> ( init, Task.attempt FoundSvg ( Browser.Dom.getElement "svg" ) )
+    { init = \_ ->
+        ( init
+        , Task.attempt FoundSvg ( Browser.Dom.getElement "svg" )
+        )
     , view = view
     , update = update
     , subscriptions = subscriptions
@@ -49,7 +52,12 @@ subscriptions _ =
   Sub.batch
     [ setupReceiver EditSetup
     , teardownReceiver EditTeardown
-    , E.onMouseMove (D.map2 MouseMove (D.field "pageX" D.float) (D.field "pageY" D.float))
+    , E.onMouseMove
+        ( D.map2
+            MouseMove
+            (D.field "pageX" D.float)
+            (D.field "pageY" D.float)
+        )
     , E.onResize ( \_ _ -> Resized )
     ]
 
@@ -147,19 +155,18 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-  svg
-    [ id "svg", A.width "100%", A.height "100%", onClick NewNode ]
-    ( List.map ( viewNode model.svgOffset ) ( Dict.toList model.program.graph.nodes ) )
+  div
+    [ class "app", onClick NewNode ]
+    ( List.map viewNode ( Dict.values model.program.graph.nodes ) )
 
-viewNode : Float -> ( Int, Node ) -> Svg Msg
-viewNode xOffset ( i, node ) =
+viewNode :  Node -> Html Msg
+viewNode node =
   let ( x, y ) = node.pos
   in
-  Svg.rect
-    [ A.x ( ( String.fromFloat ( x - xOffset ) ) ++ "px" )
-    , A.y ( ( String.fromFloat ( y ) ) ++ "px" )
-    , A.width "100"
-    , A.height "100"
+  div
+    [ class "node"
+    , style "left" ( ( String.fromFloat x ) ++ "px" )
+    , style "top"  ( ( String.fromFloat y ) ++ "px" )
     ]
-    [ Svg.text node.name
+    [ text "node"
     ]

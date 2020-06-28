@@ -2,9 +2,11 @@ port module Main exposing ( main )
 
 import Browser
 import Dict exposing ( Dict )
-import Html exposing ( Html, div )
-import Html.Attributes exposing ( style )
-import Json.Decode as D exposing ( .. )
+import Html exposing ( .. )
+import Html.Attributes exposing ( .. )
+import Html.Events exposing ( .. )
+import Http
+import Json.Decode as D
 import Json.Encode as E
 import Maybe exposing ( Maybe )
 
@@ -17,6 +19,8 @@ import Maybe exposing ( Maybe )
 port setupReceiver    : ( String  -> msg ) -> Sub msg
 port teardownReceiver : ( String  -> msg ) -> Sub msg
 port graphReceiver    : ( E.Value -> msg ) -> Sub msg
+port newNode          :   E.Value          -> Cmd msg
+port compiledProgram  :   String           -> Cmd msg
 
 main : Program () Model Msg
 main =
@@ -35,6 +39,7 @@ init =
       { nodes = Dict.empty
       , edges = Dict.empty
       }
+  , newExpr = ""
   }
 
 subscriptions : model -> Sub Msg
@@ -55,6 +60,7 @@ type alias Model =
   { setup    : String
   , teardown : String
   , graph    : Graph
+  , newExpr  : String
   }
 
 type alias Graph =
@@ -67,47 +73,87 @@ type Msg =
   | EditTeardown String
   | EditGraph    E.Value
 
+  | EditNodeExpr String
+  | Submit
+  | GetCompiledProgram
+  | GotCompiledProgram ( Result Http.Error String )
+
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
     EditSetup    s -> ( { model |  setup    = s }, Cmd.none )
     EditTeardown s -> ( { model |  teardown = s }, Cmd.none )
+
     EditGraph obj ->
       case D.decodeValue decodeGraph obj of
         Err _ -> ( model, Cmd.none )
         Ok  a -> ( { model | graph = parseGraph a }, Cmd.none )
 
-decodeGraph : D.Decoder ( List ( Dict String String ) )
-decodeGraph = field "cells" ( list ( dict string ) )
+    EditNodeExpr s -> ( { model | newExpr = s }, Cmd.none )
+    Submit ->
+      ( { model | newExpr = "" }
+      , newNode ( E.string model.newExpr )
+      )
+    GetCompiledProgram ->
+      ( model
+      , Http.post
+          { url = "http://localhost:3000/"
+          , body = Http.jsonBody <| encodeProrgam model
+          , expect = Http.expectString GotCompiledProgram
+          }
+      )
+    GotCompiledProgram s ->
+      case s of
+        Err _ -> ( model, Cmd.none )
+        Ok prog -> ( model, compiledProgram prog )
 
-parseGraph : List ( Dict String String ) -> Graph
+
+encodeProrgam : Model -> E.Value
+encodeProrgam model =
+  E.object
+    [ ( "setup", E.string model.setup )
+    , ( "teardown", E.string model.teardown )
+    , ( "graph"
+      , E.object
+          [ ( "nodes"
+            , E.dict identity E.string model.graph.nodes
+            )
+          , ( "edges"
+            , E.dict
+                identity
+                ( E.list E.string )
+                model.graph.edges
+            )
+          ]
+      )
+    ]
+
+type alias IntermediateGraph =
+  { nodes : Dict String String
+  , edges : List ( String, String )
+  }
+decodeGraph : D.Decoder IntermediateGraph
+decodeGraph =
+  D.map2
+    IntermediateGraph
+    ( D.field "nodes" <| D.dict D.string )
+    ( D.field "edges"
+        <| D.list
+        <| D.map2
+             Tuple.pair
+             ( D.field "src" D.string )
+             ( D.field "dst" D.string )
+    )
+
+parseGraph : IntermediateGraph -> Graph
 parseGraph d =
-  { nodes =
-      d
-        |> List.filter ( cellType "devs.Model" )
-        |> List.map parseNode
-        |> Dict.fromList
-  , edges =
-      d
-        |> List.filter ( cellType "devs.Link" )
-        |> List.foldl addLink Dict.empty
+  { nodes = d.nodes
+  , edges = d.edges |> List.foldl addLink Dict.empty
   }
 
-cellType : String -> Dict String String -> Bool
-cellType type_ c =
-  case Dict.get "type" c of
-    Nothing -> False
-    Just t -> t == type_
-
-parseNode : Dict String String -> ( String, String )
-parseNode obj = ( "foo", "bar" )
-
-addLink : Dict String String -> Dict String ( List String ) -> Dict String ( List String )
-addLink e acc =
-  case ( Dict.get "source" e, Dict.get "target" e ) of
-    ( Just src, Just dst ) -> Dict.update dst ( appendSource src ) acc
-    _ -> acc
+addLink : ( String, String ) -> Dict String ( List String ) -> Dict String ( List String )
+addLink ( src, dst ) acc = Dict.update dst ( appendSource src ) acc
 
 appendSource : String -> Maybe ( List String ) -> Maybe ( List String )
 appendSource new orig =
@@ -123,4 +169,16 @@ appendSource new orig =
 
 view : Model -> Html Msg
 view model =
-  div [ style "display" "none" ] []
+  div []
+    [ input
+      [ type_ "text"
+      , placeholder "expression"
+      , value model.newExpr
+      , onInput EditNodeExpr
+      ]
+      []
+    , p []
+        [ button [ onClick Submit ] [ text "Add Node" ]
+        , button [ onClick GetCompiledProgram ] [ text "Compile" ]
+        ]
+    ]

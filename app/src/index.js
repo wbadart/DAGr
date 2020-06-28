@@ -5,70 +5,26 @@ import 'codemirror/mode/python/python';
 import 'codemirror/lib/codemirror.css';
 import 'code-mirror-themes/themes/monokai.css';
 
-// const app = Elm.Main.init({
-//   node: document.getElementById('elm')
-// });
+import generateName from './names.js';
 
+
+const app = Elm.Main.init({
+  node: document.getElementById('elm')
+});
 const graph = new dia.Graph;
-
-var paper = new dia.Paper({
-        el: document.getElementById('elm'),
-        model: graph,
-        width: "100%",
-        height: "100%",
-        snapLinks: { radius: 15 }
+const paper = new dia.Paper({
+  el: document.getElementById('paper'),
+  model: graph,
+  width: "100%",
+  height: "100%",
+  snapLinks: { radius: 15 }
 });
 
 
-var connect = function(source, sourcePort, target, targetPort) {
+// ==========
+// Setup and teardown editors
+// ==========
 
-    var link = new shapes.devs.Link({
-        source: {
-            id: source.id,
-            port: sourcePort
-        },
-        target: {
-            id: target.id,
-            port: targetPort
-        }
-    });
-
-    link.addTo(graph).reparent();
-}
-
-const i1 = new shapes.devs.Model({
-  postition: { x: 150, y: 150 },
-  size: { width: 200, height: 50 },
-  outPorts: ['val'],
-});
-console.log(i1)
-i1.attr({ label: { text: "6" } });
-
-const printer = new shapes.devs.Model({
-  position: { x: 350, y: 150 },
-  size: { width: 200, height: 50 },
-  inPorts: ['0'],
-});
-
-
-graph.addCells([i1, printer]);
-connect(i1, 'val', printer, '0');
-
-graph.on('change:source change:target', function(link) {
-  var sourcePort = link.get('source').port;
-  var sourceId = link.get('source').id;
-  var targetPort = link.get('target').port;
-  var targetId = link.get('target').id;
-
-  var m = [
-          'The port <b>' + sourcePort,
-          '</b> of element with ID <b>' + sourceId,
-          '</b> is connected to port <b>' + targetPort,
-          '</b> of elemnt with ID <b>' + targetId + '</b>'
-  ].join('');
-  console.log(m)
-});
-console.log(graph.toJSON())
 
 CodeMirror(document.getElementById('setup'), {
   value: '# setup', mode: 'python', theme: 'monokai'
@@ -80,4 +36,64 @@ CodeMirror(document.getElementById('teardown'), {
   value: '# teardown', mode: 'python', theme: 'monokai'
 }).on('keyup', function(e) {
   app.ports.teardownReceiver.send(e.doc.getValue());
+});
+
+
+// ==========
+// Elm events
+// ==========
+
+
+app.ports.compiledProgram.subscribe(function(prog) {
+  console.log('RESULT:');
+  console.log(prog);
+  alert(prog);
+});
+
+
+app.ports.newNode.subscribe(function(expr) {
+  const node = new shapes.devs.Model({
+    id: generateName(),
+    position: { x: 40, y: 20 },
+    size: { width: 200, height: 50 },
+    inPorts: [ 'in' ],
+    outPorts: [ 'out' ],
+    attrs: { text: { text: expr } },
+  });
+  graph.addCell(node);
+  update_graph()
+});
+
+function update_graph() {
+  const msg = {
+    nodes: graph.getElements().reduce(
+      (acc, e) => {
+        acc[e.attributes.id] = e.attributes.attrs.text.text;
+        return acc;
+      }, {}),
+    edges: graph.getLinks().map(
+      e => ({
+        src: e.attributes.source.id,
+        dst: e.attributes.target.id,
+      })
+    ),
+  };
+  console.log('Sending message to Elm:', msg);
+  app.ports.graphReceiver.send(msg);
+}
+
+
+// ==========
+// JointJS configuration
+// ==========
+//
+
+
+graph.on('change', function(e) {
+  if (e.attributes.type !== "link" || !e.attributes.target.id) return
+  update_graph()
+});
+
+graph.on('remove', function(e) {
+  update_graph()
 });

@@ -10,6 +10,8 @@ import Json.Decode as D
 import Json.Encode as E
 import Maybe exposing ( Maybe )
 
+import Debug exposing ( .. )
+
 
 -- ==========
 -- Page setup
@@ -131,7 +133,7 @@ encodeProrgam model =
 
 type alias IntermediateGraph =
   { nodes : Dict String String
-  , edges : List ( String, String )
+  , edges : List ( Int, ( String, String ) )
   }
 decodeGraph : D.Decoder IntermediateGraph
 decodeGraph =
@@ -142,14 +144,22 @@ decodeGraph =
         <| D.list
         <| D.map2
              Tuple.pair
-             ( D.field "src" D.string )
-             ( D.field "dst" D.string )
+             ( D.field "order" D.int )
+             <| D.map2
+                  Tuple.pair
+                    ( D.field "src" D.string )
+                    ( D.field "dst" D.string )
     )
 
 parseGraph : IntermediateGraph -> Graph
 parseGraph d =
   { nodes = d.nodes
-  , edges = d.edges |> List.foldl addLink Dict.empty
+  , edges =
+      d.edges
+        |> List.sortBy Tuple.first
+        |> List.map Tuple.second
+        |> log "foo"
+        |> List.foldr addLink Dict.empty
   }
 
 addLink : ( String, String ) -> Dict String ( List String ) -> Dict String ( List String )

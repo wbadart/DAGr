@@ -1,33 +1,27 @@
-port module Main exposing (main)
+port module Main exposing ( main )
 
 import Browser
-import Browser.Dom
-import Browser.Events as E
 import Dict exposing ( Dict )
+import Html exposing ( Html, div )
+import Html.Attributes exposing ( style )
+import Json.Decode as D exposing ( .. )
+import Json.Encode as E
 import Maybe exposing ( Maybe )
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (..)
-import Svg exposing ( Svg, svg )
-import Svg.Attributes as A
 
-import Task
-import Json.Decode as D
 
 -- ==========
 -- Page setup
 -- ==========
 
-port setupReceiver : ( String -> msg ) -> Sub msg
-port teardownReceiver : ( String -> msg ) -> Sub msg
+
+port setupReceiver    : ( String  -> msg ) -> Sub msg
+port teardownReceiver : ( String  -> msg ) -> Sub msg
+port graphReceiver    : ( E.Value -> msg ) -> Sub msg
 
 main : Program () Model Msg
 main =
   Browser.element
-    { init = \_ ->
-        ( init
-        , Task.attempt FoundSvg ( Browser.Dom.getElement "svg" )
-        )
+    { init = \_ -> ( init , Cmd.none )
     , view = view
     , update = update
     , subscriptions = subscriptions
@@ -35,31 +29,20 @@ main =
 
 init : Model
 init =
-  { mousePosition = ( 0, 0 )
-  , svgOffset = 0
-  , program =
-    { setup = ""
-    , teardown = ""
-    , graph =
-        { nodes = Dict.empty
-        , edges = Dict.empty
-        }
-    }
+  { setup    = ""
+  , teardown = ""
+  , graph =
+      { nodes = Dict.empty
+      , edges = Dict.empty
+      }
   }
 
 subscriptions : model -> Sub Msg
 subscriptions _ =
   Sub.batch
-    [ setupReceiver EditSetup
+    [ setupReceiver    EditSetup
     , teardownReceiver EditTeardown
-    , E.onMouseMove
-        ( D.map2
-            MouseMove
-            (D.field "pageX" D.float)
-            (D.field "pageY" D.float)
-        )
-    , E.onResize ( \_ _ -> Resized )
-    , E.onKeyUp ( D.map Space keyCode )
+    , graphReceiver    EditGraph
     ]
 
 
@@ -69,100 +52,68 @@ subscriptions _ =
 
 
 type alias Model =
-  { mousePosition : ( Float, Float )
-  , svgOffset : Float
-  , program :
-    { setup : String
-    , teardown : String
-    , graph : Graph
-    }
+  { setup    : String
+  , teardown : String
+  , graph    : Graph
   }
 
 type alias Graph =
-  { nodes : Dict Int Node
-  , edges : Dict Int ( List Int )
+  { nodes : Dict String String
+  , edges : Dict String ( List String )
   }
-
-type alias Node =
-  { name : String
-  , expr : String
-  , pos : ( Float, Float )
-  }
-
 
 type Msg =
-    NewNode
-  | EditNodeName Int String
-  | EditNodeExpr Int String
-
-  | EditSetup String
+    EditSetup    String
   | EditTeardown String
-
-  | MouseMove Float Float
-  | FoundSvg ( Result Browser.Dom.Error Browser.Dom.Element )
-  | Resized
-  | Space Int
+  | EditGraph    E.Value
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-  let prog = model.program
-  in
   case msg of
-    NewNode ->
-      let updatedNodes =
-            Dict.insert
-              ( Dict.size prog.graph.nodes )
-              { name = "", expr = "", pos = model.mousePosition }
-              prog.graph.nodes
-          g = prog.graph
-      in
-      ( { model | program = { prog | graph = { g | nodes = updatedNodes } } }
-      , Cmd.none
-      )
+    EditSetup    s -> ( { model |  setup    = s }, Cmd.none )
+    EditTeardown s -> ( { model |  teardown = s }, Cmd.none )
+    EditGraph obj ->
+      case D.decodeValue decodeGraph obj of
+        Err _ -> ( model, Cmd.none )
+        Ok  a -> ( { model | graph = parseGraph a }, Cmd.none )
 
-    EditNodeName i s ->
-      let updatedNodes = Dict.update i ( Maybe.map (\n -> { n | name = s }) ) prog.graph.nodes
-          g = prog.graph
-      in
-      ( { model | program = { prog | graph = { g | nodes = updatedNodes } } }
-      , Cmd.none
-      )
+decodeGraph : D.Decoder ( List ( Dict String String ) )
+decodeGraph = field "cells" ( list ( dict string ) )
 
-    EditNodeExpr i s ->
-      let updatedNodes = Dict.update i ( Maybe.map (\n -> { n | expr = s }) ) prog.graph.nodes
-          g = prog.graph
-      in
-      ( { model | program = { prog | graph = { g | nodes = updatedNodes } } }
-      , Cmd.none
-      )
+parseGraph : List ( Dict String String ) -> Graph
+parseGraph d =
+  { nodes =
+      d
+        |> List.filter ( cellType "devs.Model" )
+        |> List.map parseNode
+        |> Dict.fromList
+  , edges =
+      d
+        |> List.filter ( cellType "devs.Link" )
+        |> List.foldl addLink Dict.empty
+  }
 
-    EditSetup    s -> ( { model | program = { prog | setup    = s } }, Cmd.none )
-    EditTeardown s -> ( { model | program = { prog | teardown = s } }, Cmd.none )
+cellType : String -> Dict String String -> Bool
+cellType type_ c =
+  case Dict.get "type" c of
+    Nothing -> False
+    Just t -> t == type_
 
-    MouseMove x y -> ( { model | mousePosition = ( x, y ) }, Cmd.none )
+parseNode : Dict String String -> ( String, String )
+parseNode obj = ( "foo", "bar" )
 
-    FoundSvg res ->
-      case res of
-        Err _   -> ( model, Cmd.none )
-        Ok elem -> ( { model | svgOffset = elem.element.x }, Cmd.none )
+addLink : Dict String String -> Dict String ( List String ) -> Dict String ( List String )
+addLink e acc =
+  case ( Dict.get "source" e, Dict.get "target" e ) of
+    ( Just src, Just dst ) -> Dict.update dst ( appendSource src ) acc
+    _ -> acc
 
-    Resized -> ( model, Task.attempt FoundSvg ( Browser.Dom.getElement "svg" ) )
-
-    Space code -> 
-      if code == 32
-        then
-          let updatedNodes =
-                Dict.insert
-                  ( Dict.size prog.graph.nodes )
-                  { name = "", expr = "", pos = model.mousePosition }
-                  prog.graph.nodes
-              g = prog.graph
-          in
-          ( { model | program = { prog | graph = { g | nodes = updatedNodes } } }
-          , Cmd.none
-          )
-        else ( model, Cmd.none )
+appendSource : String -> Maybe ( List String ) -> Maybe ( List String )
+appendSource new orig =
+  case orig of
+    Just srcs -> Just ( new :: srcs )
+    Nothing -> Just [ new ]
 
 
 -- ==========
@@ -172,19 +123,4 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-  div
-    [ class "app" ]
-    ( List.map viewNode ( Dict.toList model.program.graph.nodes ) )
-
-viewNode :  ( Int, Node ) -> Html Msg
-viewNode ( i, node ) =
-  let ( x, y ) = node.pos
-  in
-  div
-    [ class "node"
-    , style "left" ( ( String.fromFloat x ) ++ "px" )
-    , style "top"  ( ( String.fromFloat y ) ++ "px" )
-    ]
-    [ input [ onInput ( EditNodeName i ), placeholder "node name" ] []
-    , input [ onInput ( EditNodeExpr i ), placeholder "expression" ] []
-    ]
+  div [ style "display" "none" ] []
